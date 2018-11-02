@@ -158,7 +158,7 @@ class TestRequests:
         url = scheme + parts.netloc + parts.path
         r = requests.Request('GET', url)
         r = s.send(r.prepare())
-        assert r.status_code == 200, 'failed for scheme {0}'.format(scheme)
+        assert r.status_code == 200, 'failed for scheme {}'.format(scheme)
 
     def test_HTTP_200_OK_GET_ALTERNATIVE(self, httpbin):
         r = requests.Request('GET', httpbin('get'))
@@ -816,17 +816,17 @@ class TestRequests:
         INVALID_PATH = '/garbage'
         with pytest.raises(IOError) as e:
             requests.get(httpbin_secure(), verify=INVALID_PATH)
-        assert str(e.value) == 'Could not find a suitable TLS CA certificate bundle, invalid path: {0}'.format(INVALID_PATH)
+        assert str(e.value) == 'Could not find a suitable TLS CA certificate bundle, invalid path: {}'.format(INVALID_PATH)
 
     def test_invalid_ssl_certificate_files(self, httpbin_secure):
         INVALID_PATH = '/garbage'
         with pytest.raises(IOError) as e:
             requests.get(httpbin_secure(), cert=INVALID_PATH)
-        assert str(e.value) == 'Could not find the TLS certificate file, invalid path: {0}'.format(INVALID_PATH)
+        assert str(e.value) == 'Could not find the TLS certificate file, invalid path: {}'.format(INVALID_PATH)
 
         with pytest.raises(IOError) as e:
             requests.get(httpbin_secure(), cert=('.', INVALID_PATH))
-        assert str(e.value) == 'Could not find the TLS key file, invalid path: {0}'.format(INVALID_PATH)
+        assert str(e.value) == 'Could not find the TLS key file, invalid path: {}'.format(INVALID_PATH)
 
     def test_http_with_certificate(self, httpbin):
         r = requests.get(httpbin(), cert='.')
@@ -864,9 +864,15 @@ class TestRequests:
 
     def test_urlencoded_get_query_multivalued_param(self, httpbin):
 
-        r = requests.get(httpbin('get'), params=dict(test=['foo', 'baz']))
+        r = requests.get(httpbin('get'), params={'test': ['foo', 'baz']})
         assert r.status_code == 200
         assert r.url == httpbin('get?test=foo&test=baz')
+
+    def test_form_encoded_post_query_multivalued_element(self, httpbin):
+        r = requests.Request(method='POST', url=httpbin('post'),
+                             data=dict(test=['foo', 'baz']))
+        prep = r.prepare()
+        assert prep.body == 'test=foo&test=baz'
 
     def test_different_encodings_dont_break_post(self, httpbin):
         r = requests.post(httpbin('post'),
@@ -1400,7 +1406,7 @@ class TestRequests:
         assert 'http://' in s2.adapters
         assert 'https://' in s2.adapters
 
-    def test_session_get_adapter_prefix_matching(self, httpbin):
+    def test_session_get_adapter_prefix_matching(self):
         prefix = 'https://example.com'
         more_specific_prefix = prefix + '/some/path'
 
@@ -1418,7 +1424,7 @@ class TestRequests:
         assert s.get_adapter(url_matching_more_specific_prefix) is more_specific_prefix_adapter
         assert s.get_adapter(url_not_matching_prefix) not in (prefix_adapter, more_specific_prefix_adapter)
 
-    def test_session_get_adapter_prefix_matching_mixed_case(self, httpbin):
+    def test_session_get_adapter_prefix_matching_mixed_case(self):
         mixed_case_prefix = 'hTtPs://eXamPle.CoM/MixEd_CAse_PREfix'
         url_matching_prefix = mixed_case_prefix + '/full_url'
 
@@ -1428,7 +1434,7 @@ class TestRequests:
 
         assert s.get_adapter(url_matching_prefix) is my_adapter
 
-    def test_session_get_adapter_prefix_matching_is_case_insensitive(self, httpbin):
+    def test_session_get_adapter_prefix_matching_is_case_insensitive(self):
         mixed_case_prefix = 'hTtPs://eXamPle.CoM/MixEd_CAse_PREfix'
         url_matching_prefix_with_different_case = 'HtTpS://exaMPLe.cOm/MiXeD_caSE_preFIX/another_url'
 
@@ -1452,7 +1458,7 @@ class TestRequests:
         assert r.json()['args'] == {'foo': 'bar', 'FOO': 'bar'}
 
     def test_long_authinfo_in_url(self):
-        url = 'http://{0}:{1}@{2}:9000/path?query#frag'.format(
+        url = 'http://{}:{}@{}:9000/path?query#frag'.format(
             'E8A3BE87-9E3F-4620-8858-95478E385B5B',
             'EA770032-DA4D-4D84-8CE9-29C6D910BF1E',
             'exactly-------------sixty-----------three------------characters',
@@ -1567,15 +1573,15 @@ class TestRequests:
             preq = req.prepare()
             assert test_url == preq.url
 
-    @pytest.mark.xfail(raises=ConnectionError)
-    def test_auth_is_stripped_on_redirect_off_host(self, httpbin):
+    def test_auth_is_stripped_on_http_downgrade(self, httpbin, httpbin_secure, httpbin_ca_bundle):
         r = requests.get(
-            httpbin('redirect-to'),
-            params={'url': 'http://www.google.co.uk'},
+            httpbin_secure('redirect-to'),
+            params={'url': httpbin('get')},
             auth=('user', 'pass'),
+            verify=httpbin_ca_bundle
         )
         assert r.history[0].request.headers['Authorization']
-        assert not r.request.headers.get('Authorization', '')
+        assert 'Authorization' not in r.request.headers
 
     def test_auth_is_retained_for_redirect_on_host(self, httpbin):
         r = requests.get(httpbin('redirect/1'), auth=('user', 'pass'))
@@ -1583,6 +1589,38 @@ class TestRequests:
         h2 = r.request.headers['Authorization']
 
         assert h1 == h2
+
+    def test_should_strip_auth_host_change(self):
+        s = requests.Session()
+        assert s.should_strip_auth('http://example.com/foo', 'http://another.example.com/')
+
+    def test_should_strip_auth_http_downgrade(self):
+        s = requests.Session()
+        assert s.should_strip_auth('https://example.com/foo', 'http://example.com/bar')
+
+    def test_should_strip_auth_https_upgrade(self):
+        s = requests.Session()
+        assert not s.should_strip_auth('http://example.com/foo', 'https://example.com/bar')
+        assert not s.should_strip_auth('http://example.com:80/foo', 'https://example.com/bar')
+        assert not s.should_strip_auth('http://example.com/foo', 'https://example.com:443/bar')
+        # Non-standard ports should trigger stripping
+        assert s.should_strip_auth('http://example.com:8080/foo', 'https://example.com/bar')
+        assert s.should_strip_auth('http://example.com/foo', 'https://example.com:8443/bar')
+
+    def test_should_strip_auth_port_change(self):
+        s = requests.Session()
+        assert s.should_strip_auth('http://example.com:1234/foo', 'https://example.com:4321/bar')
+
+    @pytest.mark.parametrize(
+        'old_uri, new_uri', (
+            ('https://example.com:443/foo', 'https://example.com/bar'),
+            ('http://example.com:80/foo', 'http://example.com/bar'),
+            ('https://example.com/foo', 'https://example.com:443/bar'),
+            ('http://example.com/foo', 'http://example.com:80/bar')
+        ))
+    def test_should_strip_auth_default_port(self, old_uri, new_uri):
+        s = requests.Session()
+        assert not s.should_strip_auth(old_uri, new_uri)
 
     def test_manual_redirect_with_partial_body_read(self, httpbin):
         s = requests.Session()
@@ -1795,12 +1833,12 @@ class TestRequests:
         proxies['one'].clear.assert_called_once_with()
         proxies['two'].clear.assert_called_once_with()
 
-    def test_proxy_auth(self, httpbin):
+    def test_proxy_auth(self):
         adapter = HTTPAdapter()
         headers = adapter.proxy_headers("http://user:pass@httpbin.org")
         assert headers == {'Proxy-Authorization': 'Basic dXNlcjpwYXNz'}
 
-    def test_proxy_auth_empty_pass(self, httpbin):
+    def test_proxy_auth_empty_pass(self):
         adapter = HTTPAdapter()
         headers = adapter.proxy_headers("http://user:@httpbin.org")
         assert headers == {'Proxy-Authorization': 'Basic dXNlcjo='}
@@ -2398,6 +2436,16 @@ class TestPreparingURLs(object):
         r = requests.Request('GET', url=url)
         with pytest.raises(requests.exceptions.InvalidURL):
             r.prepare()
+
+    @pytest.mark.parametrize(
+        'url, exception',
+        (
+            ('http://localhost:-1', InvalidURL),
+        )
+    )
+    def test_redirecting_to_bad_url(self, httpbin, url, exception):
+        with pytest.raises(exception):
+            r = requests.get(httpbin('redirect-to'), params={'url': url})
 
     @pytest.mark.parametrize(
         'input, expected',

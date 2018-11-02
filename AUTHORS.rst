@@ -125,7 +125,7 @@ Patches and Suggestions
 - Bryce Boe <bbzbryce@gmail.com> (`@bboe <https://github.com/bboe>`_)
 - Colin Dunklau <colin.dunklau@gmail.com> (`@cdunklau <https://github.com/cdunklau>`_)
 - Bob Carroll <bob.carroll@alum.rit.edu> (`@rcarz <https://github.com/rcarz>`_)
-- Hugo Osvaldo Barrera <hugo@osvaldobarrera.com.ar> (`@hobarrera <https://github.com/hobarrera>`_)
+- Hugo Osvaldo Barrera <hugo@barrera.io> (`@hobarrera <https://github.com/hobarrera>`_)
 - Łukasz Langa <lukasz@langa.pl>
 - Dave Shawley <daveshawley@gmail.com>
 - James Clarke (`@jam <https://github.com/jam>`_)
@@ -188,3 +188,4 @@ Patches and Suggestions
 - Demetrios Bairaktaris (`@DemetriosBairaktaris <https://github.com/demetriosbairaktaris>`_)
 - Darren Dormer (`@ddormer <https://github.com/ddormer>`_)
 - Rajiv Mayani (`@mayani <https://github.com/mayani>`_)
+- Antti Kaihola (`@akaihola <https://github.com/akaihola>`_)
